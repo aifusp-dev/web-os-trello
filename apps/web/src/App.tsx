@@ -3,10 +3,21 @@ import { useOSStore } from './store/osStore';
 import { Window } from './components/os/Window';
 import { Taskbar } from './components/os/Taskbar';
 import { KanbanApp } from './components/apps/KanbanApp';
+import { socket } from './socket';
 import { Layout } from 'lucide-react';
 
 const App: React.FC = () => {
   const { windows, openWindow } = useOSStore();
+
+  React.useEffect(() => {
+    socket.on('connect', () => {
+      console.log('Connected to server');
+    });
+
+    return () => {
+      socket.off('connect');
+    };
+  }, []);
 
   const renderApp = (component: string) => {
     switch (component) {

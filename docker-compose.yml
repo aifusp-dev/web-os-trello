@@ -1,0 +1,31 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgres://postgres:e7L2ufa5mwxnnZ2jFcn5VQtpBRfUcmpeq1QaCL32dlXL4QSg0vMqWRWmpzKKh0lj@nys1rnv9hqd04526cfegjm54:5432/postgres}
+      - PORT=3001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - coolify
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+    depends_on:
+      server:
+        condition: service_healthy
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
