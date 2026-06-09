@@ -2,10 +2,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy root workspace files
-COPY package.json package-lock.json ./
+# Copy package files first for better caching
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
+COPY package.json package-lock.json ./
 
 # Install dependencies
 RUN npm install
