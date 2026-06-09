@@ -5,6 +5,7 @@ WORKDIR /app
 # Copy root workspace files
 COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/
+COPY apps/web/package.json ./apps/web/
 
 # Install dependencies
 RUN npm install
@@ -21,6 +22,7 @@ RUN npm run build
 
 # Production image
 FROM node:20-alpine
+RUN apk add --no-cache curl
 WORKDIR /app
 
 COPY --from=builder /app/package.json ./
