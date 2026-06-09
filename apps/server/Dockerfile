@@ -1,5 +1,5 @@
 # Base image for building
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copy package files first for better caching
@@ -7,7 +7,7 @@ COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
 COPY package.json package-lock.json ./
 
-# Install dependencies
+# Install dependencies (including devDependencies for build)
 RUN npm install
 
 # Copy server source and prisma schema
@@ -21,7 +21,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production image
-FROM node:20-alpine
+FROM node:22-alpine
 RUN apk add --no-cache curl
 WORKDIR /app
 

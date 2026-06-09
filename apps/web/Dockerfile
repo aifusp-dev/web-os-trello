@@ -1,11 +1,12 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY apps/web/package.json ./apps/web/
 COPY apps/server/package.json ./apps/server/
 COPY package.json package-lock.json ./
 
+# Install all dependencies including devDependencies for build
 RUN npm install
 
 COPY apps/web ./apps/web
