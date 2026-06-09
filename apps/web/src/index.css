@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.window-shadow {
+  box-shadow: 0 0 15px rgba(255, 0, 127, 0.3);
+}
+
+.active-window-shadow {
+  box-shadow: 0 0 25px rgba(255, 0, 127, 0.6);
+}
