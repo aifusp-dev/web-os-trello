@@ -31,6 +31,8 @@ COPY --from=builder /app/apps/server/dist ./apps/server/dist
 COPY --from=builder /app/apps/server/package.json ./apps/server/
 COPY --from=builder /app/apps/server/prisma ./apps/server/prisma
 COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
+COPY apps/server/start.sh ./apps/server/start.sh
+RUN chmod +x ./apps/server/start.sh
 
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy --schema apps/server/prisma/schema.prisma && node apps/server/dist/index.js"]
+CMD ["./apps/server/start.sh"]
