@@ -19,6 +19,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    ports:
+      - "8080:80"
     environment:
       - VITE_API_URL=${VITE_API_URL}
     depends_on:
