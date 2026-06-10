@@ -33,4 +33,4 @@ COPY --from=builder /app/apps/server/prisma ./apps/server/prisma
 COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
 
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy && node apps/server/dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema apps/server/prisma/schema.prisma && node apps/server/dist/index.js"]
