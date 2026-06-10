@@ -1,7 +1,8 @@
 import React from 'react';
 import { Rnd } from 'react-rnd';
 import { X, Minus, Square } from 'lucide-react';
-import { useOSStore, WindowState } from '../../store/osStore';
+import { useOSStore } from '../../store/osStore';
+import type { WindowState } from '../../store/osStore';
 
 interface WindowProps {
   window: WindowState;

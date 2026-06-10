@@ -14,9 +14,9 @@ RUN npm install
 COPY apps/web ./apps/web
 COPY apps/server ./apps/server
 
-# Build the web application with verbose logging to catch the exact error
+# Build the web application
 WORKDIR /app/apps/web
-RUN npm run build -- --debug
+RUN npm run build
 
 # Production stage
 FROM nginx:stable-alpine

@@ -1,13 +1,13 @@
 # Base image for building
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
 # Copy package files first for better caching
+COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
-COPY package.json package-lock.json ./
 
-# Install dependencies (including devDependencies for build)
+# Install dependencies
 RUN npm install
 
 # Copy server source and prisma schema
@@ -21,8 +21,8 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production image
-FROM node:22-alpine
-RUN apk add --no-cache curl
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY --from=builder /app/package.json ./
