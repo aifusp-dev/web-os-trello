@@ -19,10 +19,15 @@ const io = new Server(server, {
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
+console.log('--- SERVER STARTING ---');
+console.log('Port:', PORT);
+console.log('Database URL presence:', process.env.DATABASE_URL ? 'YES' : 'NO');
+
 app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
+  console.log('[LOG] Healthcheck hit at /');
   res.send('Web OS Backend is running');
 });
 
@@ -62,5 +67,13 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`[SUCCESS] Server listening on port ${PORT}`);
+  
+  // Verify database connection
+  prisma.$connect()
+    .then(() => console.log('[SUCCESS] Connected to DB via Prisma'))
+    .catch((err) => {
+      console.error('[ERROR] Prisma connection failed:');
+      console.error(err);
+    });
 });
