@@ -261,7 +261,8 @@ app.post('/api/cards', async (req, res) => {
             orderBy: { order: 'desc' }
         });
         const card = await prisma.card.create({
-            data: { title, description, listId, order: (last?.order ?? -1) + 1 }
+            data: { title, description, listId, order: (last?.order ?? -1) + 1 },
+            include: { labels: true, checklistItems: true }
         });
         notifyBoardChanged();
         res.status(201).json(card);
