@@ -21,6 +21,7 @@ model Board {
   owner   User     @relation(fields: [ownerId], references: [id])
   ownerId String
   lists   List[]
+  labels  Label[]
 }
 
 model List {
@@ -33,10 +34,31 @@ model List {
 }
 
 model Card {
-  id          String  @id @default(uuid())
-  title       String
-  description String?
-  list        List    @relation(fields: [listId], references: [id])
-  listId      String
-  order       Int
+  id             String          @id @default(uuid())
+  title          String
+  description    String?
+  dueDate        DateTime?
+  list           List            @relation(fields: [listId], references: [id])
+  listId         String
+  order          Int
+  labels         Label[]
+  checklistItems ChecklistItem[]
+}
+
+model Label {
+  id      String  @id @default(uuid())
+  name    String
+  color   String
+  board   Board   @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  boardId String
+  cards   Card[]
+}
+
+model ChecklistItem {
+  id     String  @id @default(uuid())
+  text   String
+  done   Boolean @default(false)
+  order  Int
+  card   Card    @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId String
 }

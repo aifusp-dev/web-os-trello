@@ -26,10 +26,17 @@ app.get('/', (req, res) => {
     res.send('Web OS Backend is running');
 });
 const boardInclude = {
+    labels: true,
     lists: {
         orderBy: { order: 'asc' },
         include: {
-            cards: { orderBy: { order: 'asc' } }
+            cards: {
+                orderBy: { order: 'asc' },
+                include: {
+                    labels: true,
+                    checklistItems: { orderBy: { order: 'asc' } }
+                }
+            }
         }
     }
 };
@@ -133,6 +140,48 @@ app.delete('/api/boards/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete board' });
     }
 });
+app.post('/api/boards/:id/labels', async (req, res) => {
+    try {
+        const name = String(req.body?.name ?? '').trim();
+        const color = String(req.body?.color ?? '').trim();
+        if (!name || !color)
+            return res.status(400).json({ error: 'name and color are required' });
+        const label = await prisma.label.create({ data: { name, color, boardId: req.params.id } });
+        notifyBoardChanged();
+        res.status(201).json(label);
+    }
+    catch (error) {
+        console.error('Error creating label:', error);
+        res.status(500).json({ error: 'Failed to create label' });
+    }
+});
+app.patch('/api/labels/:id', async (req, res) => {
+    try {
+        const data = {};
+        if (req.body?.name !== undefined)
+            data.name = String(req.body.name).trim();
+        if (req.body?.color !== undefined)
+            data.color = String(req.body.color).trim();
+        const label = await prisma.label.update({ where: { id: req.params.id }, data });
+        notifyBoardChanged();
+        res.json(label);
+    }
+    catch (error) {
+        console.error('Error updating label:', error);
+        res.status(500).json({ error: 'Failed to update label' });
+    }
+});
+app.delete('/api/labels/:id', async (req, res) => {
+    try {
+        await prisma.label.delete({ where: { id: req.params.id } });
+        notifyBoardChanged();
+        res.status(204).send();
+    }
+    catch (error) {
+        console.error('Error deleting label:', error);
+        res.status(500).json({ error: 'Failed to delete label' });
+    }
+});
 app.post('/api/lists', async (req, res) => {
     try {
         const title = String(req.body?.title ?? '').trim();
@@ -229,6 +278,8 @@ app.patch('/api/cards/:id', async (req, res) => {
             data.title = String(req.body.title).trim();
         if (req.body?.description !== undefined)
             data.description = req.body.description;
+        if (req.body?.dueDate !== undefined)
+            data.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
         const card = await prisma.card.update({ where: { id: req.params.id }, data });
         notifyBoardChanged();
         res.json(card);
@@ -247,6 +298,86 @@ app.delete('/api/cards/:id', async (req, res) => {
     catch (error) {
         console.error('Error deleting card:', error);
         res.status(500).json({ error: 'Failed to delete card' });
+    }
+});
+app.post('/api/cards/:id/labels', async (req, res) => {
+    try {
+        const labelId = req.body?.labelId;
+        if (!labelId)
+            return res.status(400).json({ error: 'labelId is required' });
+        const card = await prisma.card.update({
+            where: { id: req.params.id },
+            data: { labels: { connect: { id: labelId } } },
+            include: { labels: true }
+        });
+        notifyBoardChanged();
+        res.json(card);
+    }
+    catch (error) {
+        console.error('Error attaching label:', error);
+        res.status(500).json({ error: 'Failed to attach label' });
+    }
+});
+app.delete('/api/cards/:id/labels/:labelId', async (req, res) => {
+    try {
+        const card = await prisma.card.update({
+            where: { id: req.params.id },
+            data: { labels: { disconnect: { id: req.params.labelId } } },
+            include: { labels: true }
+        });
+        notifyBoardChanged();
+        res.json(card);
+    }
+    catch (error) {
+        console.error('Error detaching label:', error);
+        res.status(500).json({ error: 'Failed to detach label' });
+    }
+});
+app.post('/api/cards/:id/checklist', async (req, res) => {
+    try {
+        const text = String(req.body?.text ?? '').trim();
+        if (!text)
+            return res.status(400).json({ error: 'text is required' });
+        const last = await prisma.checklistItem.findFirst({
+            where: { cardId: req.params.id },
+            orderBy: { order: 'desc' }
+        });
+        const item = await prisma.checklistItem.create({
+            data: { text, cardId: req.params.id, order: (last?.order ?? -1) + 1 }
+        });
+        notifyBoardChanged();
+        res.status(201).json(item);
+    }
+    catch (error) {
+        console.error('Error creating checklist item:', error);
+        res.status(500).json({ error: 'Failed to create checklist item' });
+    }
+});
+app.patch('/api/checklist/:id', async (req, res) => {
+    try {
+        const data = {};
+        if (req.body?.text !== undefined)
+            data.text = String(req.body.text).trim();
+        if (req.body?.done !== undefined)
+            data.done = Boolean(req.body.done);
+        const item = await prisma.checklistItem.update({ where: { id: req.params.id }, data });
+        notifyBoardChanged();
+        res.json(item);
+    }
+    catch (error) {
+        console.error('Error updating checklist item:', error);
+        res.status(500).json({ error: 'Failed to update checklist item' });
+    }
+});
+app.delete('/api/checklist/:id', async (req, res) => {
+    try {
+        await prisma.checklistItem.delete({ where: { id: req.params.id } });
+        notifyBoardChanged();
+        res.status(204).send();
+    }
+    catch (error) {
+        console.error('Error deleting checklist item:', error);
+        res.status(500).json({ error: 'Failed to delete checklist item' });
     }
 });
 // Move/reorder cards (drag & drop). Receives every card whose listId/order

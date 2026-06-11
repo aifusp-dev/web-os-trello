@@ -9,12 +9,30 @@ export const api = axios.create({
   baseURL: API_URL,
 });
 
+export interface Label {
+  id: string;
+  name: string;
+  color: string;
+  boardId: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  order: number;
+  cardId: string;
+}
+
 export interface CardData {
   id: string;
   title: string;
   description: string | null;
+  dueDate: string | null;
   listId: string;
   order: number;
+  labels: Label[];
+  checklistItems: ChecklistItem[];
 }
 
 export interface ListData {
@@ -33,6 +51,7 @@ export interface BoardSummary {
 export interface BoardData extends BoardSummary {
   ownerId: string;
   lists: ListData[];
+  labels: Label[];
 }
 
 export const getBoards = () => api.get<BoardSummary[]>('/api/boards').then(r => r.data);
@@ -49,8 +68,25 @@ export const reorderLists = (lists: { id: string; order: number }[]) => api.post
 
 export const createCard = (listId: string, title: string, description?: string | null) =>
   api.post<CardData>('/api/cards', { listId, title, description }).then(r => r.data);
-export const updateCard = (id: string, data: { title?: string; description?: string | null }) =>
+export const updateCard = (id: string, data: { title?: string; description?: string | null; dueDate?: string | null }) =>
   api.patch(`/api/cards/${id}`, data);
 export const deleteCard = (id: string) => api.delete(`/api/cards/${id}`);
 export const reorderCards = (cards: { id: string; listId: string; order: number }[]) =>
   api.post('/api/cards/reorder', { cards });
+
+export const createLabel = (boardId: string, name: string, color: string) =>
+  api.post<Label>(`/api/boards/${boardId}/labels`, { name, color }).then(r => r.data);
+export const updateLabel = (id: string, data: { name?: string; color?: string }) =>
+  api.patch<Label>(`/api/labels/${id}`, data).then(r => r.data);
+export const deleteLabel = (id: string) => api.delete(`/api/labels/${id}`);
+
+export const attachLabel = (cardId: string, labelId: string) =>
+  api.post<CardData>(`/api/cards/${cardId}/labels`, { labelId }).then(r => r.data);
+export const detachLabel = (cardId: string, labelId: string) =>
+  api.delete<CardData>(`/api/cards/${cardId}/labels/${labelId}`).then(r => r.data);
+
+export const createChecklistItem = (cardId: string, text: string) =>
+  api.post<ChecklistItem>(`/api/cards/${cardId}/checklist`, { text }).then(r => r.data);
+export const updateChecklistItem = (id: string, data: { text?: string; done?: boolean }) =>
+  api.patch<ChecklistItem>(`/api/checklist/${id}`, data).then(r => r.data);
+export const deleteChecklistItem = (id: string) => api.delete(`/api/checklist/${id}`);
