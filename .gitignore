@@ -1,0 +1,5 @@
+# Electron build outputs accidentally produced at the repo root
+*.AppImage
+*.exe
+*.7z
+*.snap
