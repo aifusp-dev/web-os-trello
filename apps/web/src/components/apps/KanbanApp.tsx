@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   DragDropContext,
   Droppable,
@@ -8,7 +8,11 @@ import {
 import { Plus, X, Trash2 } from 'lucide-react';
 import { socket } from '../../socket';
 import {
+  getBoards,
   getBoard,
+  createBoard,
+  renameBoard,
+  deleteBoard,
   createList,
   renameList,
   deleteList,
@@ -18,12 +22,21 @@ import {
   deleteCard,
   reorderCards,
   type BoardData,
+  type BoardSummary,
   type CardData,
 } from '../../api';
 
+const LAST_BOARD_KEY = 'kanban_last_board_id';
+
 export const KanbanApp: React.FC = () => {
+  const [boards, setBoards] = useState<BoardSummary[]>([]);
+  const [currentBoardId, setCurrentBoardId] = useState<string | null>(null);
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [isAddingBoard, setIsAddingBoard] = useState(false);
+  const [newBoardTitle, setNewBoardTitle] = useState('');
+  const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
 
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListTitle, setNewListTitle] = useState('');
@@ -35,8 +48,28 @@ export const KanbanApp: React.FC = () => {
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
 
-  const fetchBoard = () => {
-    getBoard()
+  const currentBoardIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentBoardIdRef.current = currentBoardId;
+  }, [currentBoardId]);
+
+  const fetchBoards = () => {
+    getBoards()
+      .then(list => {
+        setBoards(list);
+        setError(null);
+        setCurrentBoardId(prev => {
+          if (prev && list.some(b => b.id === prev)) return prev;
+          const stored = localStorage.getItem(LAST_BOARD_KEY);
+          if (stored && list.some(b => b.id === stored)) return stored;
+          return list[0]?.id ?? null;
+        });
+      })
+      .catch(() => setError('No se pudo conectar con el servidor.'));
+  };
+
+  const fetchBoard = (id: string) => {
+    getBoard(id)
       .then(data => {
         setBoard(data);
         setError(null);
@@ -45,13 +78,26 @@ export const KanbanApp: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchBoard();
+    fetchBoards();
 
-    socket.on('board_changed', fetchBoard);
+    const handleBoardChanged = () => {
+      fetchBoards();
+      if (currentBoardIdRef.current) fetchBoard(currentBoardIdRef.current);
+    };
+    socket.on('board_changed', handleBoardChanged);
     return () => {
-      socket.off('board_changed', fetchBoard);
+      socket.off('board_changed', handleBoardChanged);
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentBoardId) {
+      setBoard(null);
+      return;
+    }
+    localStorage.setItem(LAST_BOARD_KEY, currentBoardId);
+    fetchBoard(currentBoardId);
+  }, [currentBoardId]);
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination, type } = result;
@@ -99,14 +145,57 @@ export const KanbanApp: React.FC = () => {
     });
   };
 
+  const handleCreateBoard = async () => {
+    const title = newBoardTitle.trim();
+    if (!title) {
+      setIsAddingBoard(false);
+      return;
+    }
+    try {
+      const newBoard = await createBoard(title);
+      setBoards(prev => [...prev, { id: newBoard.id, title: newBoard.title }]);
+      setCurrentBoardId(newBoard.id);
+    } catch {
+      setError('No se pudo crear el tablero.');
+    }
+    setNewBoardTitle('');
+    setIsAddingBoard(false);
+  };
+
+  const handleRenameBoard = async (boardId: string, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    setBoards(prev => prev.map(b => b.id === boardId ? { ...b, title: trimmed } : b));
+    setBoard(prev => prev && prev.id === boardId ? { ...prev, title: trimmed } : prev);
+    try {
+      await renameBoard(boardId, trimmed);
+    } catch {
+      setError('No se pudo renombrar el tablero.');
+    }
+  };
+
+  const handleDeleteBoard = async (boardId: string) => {
+    if (boards.length <= 1) return;
+    const previous = boards;
+    const remaining = boards.filter(b => b.id !== boardId);
+    setBoards(remaining);
+    if (currentBoardId === boardId) setCurrentBoardId(remaining[0]?.id ?? null);
+    try {
+      await deleteBoard(boardId);
+    } catch {
+      setError('No se pudo eliminar el tablero.');
+      setBoards(previous);
+    }
+  };
+
   const handleCreateList = async () => {
     const title = newListTitle.trim();
-    if (!title) {
+    if (!title || !currentBoardId) {
       setIsAddingList(false);
       return;
     }
     try {
-      const list = await createList(title);
+      const list = await createList(currentBoardId, title);
       setBoard(prev => prev ? { ...prev, lists: [...prev.lists, { ...list, cards: [] }] } : prev);
     } catch {
       setError('No se pudo crear la lista.');
@@ -210,16 +299,78 @@ export const KanbanApp: React.FC = () => {
     );
   }
 
-  if (!board) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">
-        Cargando tablero...
-      </div>
-    );
-  }
-
   return (
     <div className="w-full h-full flex flex-col text-white relative">
+      <div className="px-4 pt-3 border-b border-zinc-800 flex items-center space-x-1 overflow-x-auto">
+        {boards.map(b => (
+          <div
+            key={b.id}
+            onClick={() => setCurrentBoardId(b.id)}
+            className={`group flex items-center shrink-0 px-3 py-1.5 rounded-t-md text-sm cursor-pointer border-b-2 transition-colors ${
+              b.id === currentBoardId
+                ? 'border-os-pink text-os-pink bg-zinc-900/50'
+                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            {editingBoardId === b.id ? (
+              <input
+                autoFocus
+                defaultValue={b.title}
+                onClick={e => e.stopPropagation()}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  if (e.key === 'Escape') setEditingBoardId(null);
+                }}
+                onBlur={e => {
+                  handleRenameBoard(b.id, e.target.value);
+                  setEditingBoardId(null);
+                }}
+                className="bg-zinc-800 border border-os-pink rounded px-1 outline-none w-32"
+              />
+            ) : (
+              <span onDoubleClick={() => setEditingBoardId(b.id)}>{b.title}</span>
+            )}
+            {boards.length > 1 && (
+              <button
+                onClick={e => { e.stopPropagation(); handleDeleteBoard(b.id); }}
+                className="ml-2 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Eliminar tablero"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        ))}
+        {isAddingBoard ? (
+          <input
+            autoFocus
+            value={newBoardTitle}
+            onChange={e => setNewBoardTitle(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleCreateBoard();
+              if (e.key === 'Escape') { setIsAddingBoard(false); setNewBoardTitle(''); }
+            }}
+            onBlur={handleCreateBoard}
+            placeholder="Nombre del tablero"
+            className="ml-1 mb-1 bg-zinc-800 border border-os-pink rounded px-2 py-1 text-sm outline-none shrink-0"
+          />
+        ) : (
+          <button
+            onClick={() => setIsAddingBoard(true)}
+            className="shrink-0 ml-1 mb-1 px-2 py-1 text-zinc-500 hover:text-os-pink transition-colors"
+            title="Nuevo tablero"
+          >
+            <Plus size={14} />
+          </button>
+        )}
+      </div>
+
+      {!board ? (
+        <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
+          Cargando tablero...
+        </div>
+      ) : (
+      <>
       <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
         <h2 className="text-xl font-bold text-os-pink">{board.title}</h2>
         <div className="flex space-x-2">
@@ -388,6 +539,8 @@ export const KanbanApp: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

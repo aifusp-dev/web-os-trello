@@ -35,63 +35,124 @@ const boardInclude = {
   }
 };
 
-/**
- * This OS has a single personal Kanban board. We lazily create it
- * (and a default owner) the first time it's requested.
- */
-async function getOrCreateBoard() {
-  let board = await prisma.board.findFirst({ include: boardInclude });
-  if (board) return board;
+const defaultLists = [
+  { title: 'To Do', order: 0 },
+  { title: 'In Progress', order: 1 },
+  { title: 'Done', order: 2 },
+];
 
+async function getOrCreateOwner() {
   let owner = await prisma.user.findFirst();
   if (!owner) {
     owner = await prisma.user.create({
       data: { username: 'aifusp', email: 'aifusp@local' }
     });
   }
-
-  return prisma.board.create({
-    data: {
-      title: 'Project Board',
-      ownerId: owner.id,
-      lists: {
-        create: [
-          { title: 'To Do', order: 0 },
-          { title: 'In Progress', order: 1 },
-          { title: 'Done', order: 2 },
-        ]
-      }
-    },
-    include: boardInclude
-  });
+  return owner;
 }
 
 function notifyBoardChanged() {
   io.emit('board_changed');
 }
 
-app.get('/api/board', async (req, res) => {
+// List all boards (lightweight, no lists/cards). Lazily creates a default
+// board the first time this is called on a fresh database.
+app.get('/api/boards', async (req, res) => {
   try {
-    res.json(await getOrCreateBoard());
+    let boards = await prisma.board.findMany({
+      orderBy: { id: 'asc' },
+      select: { id: true, title: true }
+    });
+
+    if (boards.length === 0) {
+      const owner = await getOrCreateOwner();
+      const board = await prisma.board.create({
+        data: { title: 'Project Board', ownerId: owner.id, lists: { create: defaultLists } },
+        select: { id: true, title: true }
+      });
+      boards = [board];
+    }
+
+    res.json(boards);
+  } catch (error) {
+    console.error('Error fetching boards:', error);
+    res.status(500).json({ error: 'Failed to fetch boards' });
+  }
+});
+
+app.get('/api/boards/:id', async (req, res) => {
+  try {
+    const board = await prisma.board.findUnique({ where: { id: req.params.id }, include: boardInclude });
+    if (!board) return res.status(404).json({ error: 'Board not found' });
+    res.json(board);
   } catch (error) {
     console.error('Error fetching board:', error);
     res.status(500).json({ error: 'Failed to fetch board' });
   }
 });
 
-app.post('/api/lists', async (req, res) => {
+app.post('/api/boards', async (req, res) => {
   try {
     const title = String(req.body?.title ?? '').trim();
     if (!title) return res.status(400).json({ error: 'Title is required' });
 
-    const board = await getOrCreateBoard();
+    const owner = await getOrCreateOwner();
+    const board = await prisma.board.create({
+      data: { title, ownerId: owner.id, lists: { create: defaultLists } },
+      include: boardInclude
+    });
+
+    notifyBoardChanged();
+    res.status(201).json(board);
+  } catch (error) {
+    console.error('Error creating board:', error);
+    res.status(500).json({ error: 'Failed to create board' });
+  }
+});
+
+app.patch('/api/boards/:id', async (req, res) => {
+  try {
+    const title = String(req.body?.title ?? '').trim();
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+
+    const board = await prisma.board.update({ where: { id: req.params.id }, data: { title } });
+    notifyBoardChanged();
+    res.json(board);
+  } catch (error) {
+    console.error('Error updating board:', error);
+    res.status(500).json({ error: 'Failed to update board' });
+  }
+});
+
+app.delete('/api/boards/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.$transaction([
+      prisma.card.deleteMany({ where: { list: { boardId: id } } }),
+      prisma.list.deleteMany({ where: { boardId: id } }),
+      prisma.board.delete({ where: { id } })
+    ]);
+    notifyBoardChanged();
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting board:', error);
+    res.status(500).json({ error: 'Failed to delete board' });
+  }
+});
+
+app.post('/api/lists', async (req, res) => {
+  try {
+    const title = String(req.body?.title ?? '').trim();
+    const boardId = req.body?.boardId as string | undefined;
+    if (!title || !boardId) return res.status(400).json({ error: 'title and boardId are required' });
+
     const last = await prisma.list.findFirst({
-      where: { boardId: board.id },
+      where: { boardId },
       orderBy: { order: 'desc' }
     });
 
     const list = await prisma.list.create({
-      data: { title, boardId: board.id, order: (last?.order ?? -1) + 1 },
+      data: { title, boardId, order: (last?.order ?? -1) + 1 },
       include: { cards: true }
     });
 

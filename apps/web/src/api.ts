@@ -25,16 +25,24 @@ export interface ListData {
   cards: CardData[];
 }
 
-export interface BoardData {
+export interface BoardSummary {
   id: string;
   title: string;
+}
+
+export interface BoardData extends BoardSummary {
   ownerId: string;
   lists: ListData[];
 }
 
-export const getBoard = () => api.get<BoardData>('/api/board').then(r => r.data);
+export const getBoards = () => api.get<BoardSummary[]>('/api/boards').then(r => r.data);
+export const getBoard = (id: string) => api.get<BoardData>(`/api/boards/${id}`).then(r => r.data);
+export const createBoard = (title: string) => api.post<BoardData>('/api/boards', { title }).then(r => r.data);
+export const renameBoard = (id: string, title: string) => api.patch(`/api/boards/${id}`, { title });
+export const deleteBoard = (id: string) => api.delete(`/api/boards/${id}`);
 
-export const createList = (title: string) => api.post<ListData>('/api/lists', { title }).then(r => r.data);
+export const createList = (boardId: string, title: string) =>
+  api.post<ListData>('/api/lists', { boardId, title }).then(r => r.data);
 export const renameList = (id: string, title: string) => api.patch(`/api/lists/${id}`, { title });
 export const deleteList = (id: string) => api.delete(`/api/lists/${id}`);
 export const reorderLists = (lists: { id: string; order: number }[]) => api.post('/api/lists/reorder', { lists });
