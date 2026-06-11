@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// In production the web container's nginx proxies /api to the server,
+// so requests can stay relative to the current origin (avoids CORS).
+// VITE_API_URL can override this for local dev (e.g. http://localhost:3001).
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export const api = axios.create({
   baseURL: API_URL,
