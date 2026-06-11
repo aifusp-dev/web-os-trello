@@ -3,7 +3,7 @@ echo "--- STARTING DEPLOYMENT SCRIPT ---"
 
 # 1. Run migrations
 echo "Running Prisma migrations..."
-npx prisma migrate deploy --schema apps/server/prisma/schema.prisma
+(cd apps/server && node_modules/.bin/prisma migrate deploy)
 if [ $? -ne 0 ]; then
   echo "ERROR: Prisma migration failed!"
   # Don't exit yet, let the server try to start to see its error
