@@ -1,5 +1,11 @@
 import { create } from 'zustand';
 
+export interface User {
+  id: string;
+  username: string;
+  permissions: string[];
+}
+
 export interface WindowState {
   id: string;
   title: string;
@@ -15,9 +21,14 @@ export interface WindowState {
 }
 
 interface OSState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
   windows: WindowState[];
   activeWindowId: string | null;
   maxZIndex: number;
+  setAuth: (user: User, token: string) => void;
+  logout: () => void;
   openWindow: (id: string, title: string, component: string) => void;
   closeWindow: (id: string) => void;
   minimizeWindow: (id: string) => void;
@@ -25,15 +36,42 @@ interface OSState {
   focusWindow: (id: string) => void;
   updateWindowPos: (id: string, x: number, y: number) => void;
   updateWindowSize: (id: string, width: number, height: number) => void;
+  hasPermission: (appId: string) => boolean;
 }
 
 export const useOSStore = create<OSState>((set, get) => ({
+  user: null,
+  token: localStorage.getItem('os_token'),
+  isAuthenticated: !!localStorage.getItem('os_token'),
   windows: [],
   activeWindowId: null,
   maxZIndex: 10,
 
+  setAuth: (user, token) => {
+    localStorage.setItem('os_token', token);
+    set({ user, token, isAuthenticated: true });
+  },
+
+  logout: () => {
+    localStorage.removeItem('os_token');
+    set({ user: null, token: null, isAuthenticated: false, windows: [] });
+  },
+
+  hasPermission: (appId) => {
+    const { user } = get();
+    if (!user) return false;
+    return user.permissions.includes(appId);
+  },
+
   openWindow: (id, title, component) => {
-    const { windows, maxZIndex } = get();
+    const { windows, maxZIndex, hasPermission } = get();
+    
+    // Check permission before opening
+    if (!hasPermission(id)) {
+      console.warn(`Access denied for app: ${id}`);
+      return;
+    }
+
     const existingWindow = windows.find(w => w.id === id);
 
     if (existingWindow) {

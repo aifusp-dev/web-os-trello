@@ -9,6 +9,15 @@ export const api = axios.create({
   baseURL: API_URL,
 });
 
+// Add request interceptor for authentication
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('os_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export interface Label {
   id: string;
   name: string;
@@ -90,3 +99,21 @@ export const createChecklistItem = (cardId: string, text: string) =>
 export const updateChecklistItem = (id: string, data: { text?: string; done?: boolean }) =>
   api.patch<ChecklistItem>(`/api/checklist/${id}`, data).then(r => r.data);
 export const deleteChecklistItem = (id: string) => api.delete(`/api/checklist/${id}`);
+
+export interface ShortLink {
+  id: string;
+  code: string;
+  targetUrl: string;
+  title: string | null;
+  clicks: number;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+}
+
+export const getShortLinks = () => api.get<ShortLink[]>('/api/links').then(r => r.data);
+export const createShortLink = (data: { targetUrl: string; code?: string; title?: string }) =>
+  api.post<ShortLink>('/api/links', data).then(r => r.data);
+export const updateShortLink = (id: string, data: { targetUrl?: string; code?: string; title?: string }) =>
+  api.patch<ShortLink>(`/api/links/${id}`, data).then(r => r.data);
+export const deleteShortLink = (id: string) => api.delete(`/api/links/${id}`);

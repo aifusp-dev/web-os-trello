@@ -9,10 +9,25 @@ datasource db {
 }
 
 model User {
-  id       String   @id @default(uuid())
-  username String   @unique
-  email    String   @unique
-  boards   Board[]
+  id          String      @id @default(uuid())
+  username    String      @unique
+  email       String      @unique
+  password    String
+  permissions String[]    @default(["kanban"])
+  boards      Board[]
+  shortLinks  ShortLink[]
+}
+
+model ShortLink {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  targetUrl String
+  title     String?
+  clicks    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner     User     @relation(fields: [ownerId], references: [id])
+  ownerId   String
 }
 
 model Board {
