@@ -117,3 +117,23 @@ export const createShortLink = (data: { targetUrl: string; code?: string; title?
 export const updateShortLink = (id: string, data: { targetUrl?: string; code?: string; title?: string }) =>
   api.patch<ShortLink>(`/api/links/${id}`, data).then(r => r.data);
 export const deleteShortLink = (id: string) => api.delete(`/api/links/${id}`);
+
+export interface NoteSummary {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NoteData extends NoteSummary {
+  content: string;
+  ownerId: string;
+}
+
+export const getNotes = () => api.get<NoteSummary[]>('/api/notes').then(r => r.data);
+export const getNote = (id: string) => api.get<NoteData>(`/api/notes/${id}`).then(r => r.data);
+export const createNote = (data: { title?: string; content?: string }) =>
+  api.post<NoteData>('/api/notes', data).then(r => r.data);
+export const updateNote = (id: string, data: { title?: string; content?: string }) =>
+  api.patch<NoteData>(`/api/notes/${id}`, data).then(r => r.data);
+export const deleteNote = (id: string) => api.delete(`/api/notes/${id}`);

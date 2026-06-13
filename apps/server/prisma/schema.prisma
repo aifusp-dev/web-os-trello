@@ -16,6 +16,7 @@ model User {
   permissions String[]    @default(["kanban"])
   boards      Board[]
   shortLinks  ShortLink[]
+  notes       Note[]
 }
 
 model ShortLink {
@@ -24,6 +25,16 @@ model ShortLink {
   targetUrl String
   title     String?
   clicks    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner     User     @relation(fields: [ownerId], references: [id])
+  ownerId   String
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   owner     User     @relation(fields: [ownerId], references: [id])

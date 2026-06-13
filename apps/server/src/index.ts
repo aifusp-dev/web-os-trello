@@ -82,6 +82,8 @@ app.use('/api', (req, res, next) => {
   authenticate(req, res, next);
 });
 
+const ADMIN_PERMISSIONS = ['kanban', 'terminal', 'settings', 'shortener', 'notes'];
+
 async function getOrCreateOwner() {
   let owner = await prisma.user.findFirst({ where: { username: 'aifusp' } });
   if (!owner) {
@@ -91,14 +93,17 @@ async function getOrCreateOwner() {
         username: 'aifusp',
         email: 'aifusp@local',
         password: hashedPassword,
-        permissions: ['kanban', 'terminal', 'settings', 'shortener'] // Admin has all by default
+        permissions: ADMIN_PERMISSIONS // Admin has all by default
       }
     });
-  } else if (!owner.permissions.includes('shortener')) {
-    owner = await prisma.user.update({
-      where: { id: owner.id },
-      data: { permissions: { push: 'shortener' } }
-    });
+  } else {
+    const missing = ADMIN_PERMISSIONS.filter(p => !owner!.permissions.includes(p));
+    if (missing.length > 0) {
+      owner = await prisma.user.update({
+        where: { id: owner.id },
+        data: { permissions: { push: missing } }
+      });
+    }
   }
   return owner;
 }
@@ -599,6 +604,79 @@ app.delete('/api/links/:id', async (req: any, res) => {
   } catch (error) {
     console.error('Error deleting link:', error);
     res.status(500).json({ error: 'Failed to delete link' });
+  }
+});
+
+// Notes (markdown notes app)
+const noteSummarySelect = { id: true, title: true, createdAt: true, updatedAt: true };
+
+app.get('/api/notes', async (req: any, res) => {
+  try {
+    const notes = await prisma.note.findMany({
+      where: { ownerId: req.user.id },
+      orderBy: { updatedAt: 'desc' },
+      select: noteSummarySelect
+    });
+    res.json(notes);
+  } catch (error) {
+    console.error('Error fetching notes:', error);
+    res.status(500).json({ error: 'Failed to fetch notes' });
+  }
+});
+
+app.get('/api/notes/:id', async (req: any, res) => {
+  try {
+    const note = await prisma.note.findUnique({ where: { id: req.params.id } });
+    if (!note || note.ownerId !== req.user.id) return res.status(404).json({ error: 'Note not found' });
+    res.json(note);
+  } catch (error) {
+    console.error('Error fetching note:', error);
+    res.status(500).json({ error: 'Failed to fetch note' });
+  }
+});
+
+app.post('/api/notes', async (req: any, res) => {
+  try {
+    const title = req.body?.title !== undefined ? String(req.body.title).trim() : 'Nueva nota';
+    const content = req.body?.content !== undefined ? String(req.body.content) : '';
+
+    const note = await prisma.note.create({
+      data: { title: title || 'Nueva nota', content, ownerId: req.user.id }
+    });
+    res.status(201).json(note);
+  } catch (error) {
+    console.error('Error creating note:', error);
+    res.status(500).json({ error: 'Failed to create note' });
+  }
+});
+
+app.patch('/api/notes/:id', async (req: any, res) => {
+  try {
+    const note = await prisma.note.findUnique({ where: { id: req.params.id } });
+    if (!note || note.ownerId !== req.user.id) return res.status(404).json({ error: 'Note not found' });
+
+    const data: { title?: string; content?: string } = {};
+    if (req.body?.title !== undefined) data.title = String(req.body.title).trim() || 'Sin título';
+    if (req.body?.content !== undefined) data.content = String(req.body.content);
+
+    const updated = await prisma.note.update({ where: { id: note.id }, data });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating note:', error);
+    res.status(500).json({ error: 'Failed to update note' });
+  }
+});
+
+app.delete('/api/notes/:id', async (req: any, res) => {
+  try {
+    const note = await prisma.note.findUnique({ where: { id: req.params.id } });
+    if (!note || note.ownerId !== req.user.id) return res.status(404).json({ error: 'Note not found' });
+
+    await prisma.note.delete({ where: { id: note.id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting note:', error);
+    res.status(500).json({ error: 'Failed to delete note' });
   }
 });
 

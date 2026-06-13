@@ -1,6 +1,6 @@
 import React from 'react';
 import { useOSStore } from '../../store/osStore';
-import { Layout, Link as LinkIcon, LogOut, User } from 'lucide-react';
+import { Layout, Link as LinkIcon, FileText, LogOut, User } from 'lucide-react';
 
 export const Taskbar: React.FC = () => {
   const { windows, openWindow, focusWindow, activeWindowId, logout, user, hasPermission } = useOSStore();
@@ -24,6 +24,15 @@ export const Taskbar: React.FC = () => {
           title="Acortador de enlaces"
         >
           <LinkIcon size={24} />
+        </button>
+      )}
+      {hasPermission('notes') && (
+        <button
+          onClick={() => openWindow('notes', 'Notas', 'NotesApp')}
+          className="p-2 hover:bg-os-pink/20 text-os-pink rounded-md transition-colors mr-2"
+          title="Notas"
+        >
+          <FileText size={24} />
         </button>
       )}
 
