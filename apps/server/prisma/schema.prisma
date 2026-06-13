@@ -17,6 +17,7 @@ model User {
   boards      Board[]
   shortLinks  ShortLink[]
   notes       Note[]
+  snippets    Snippet[]
 }
 
 model ShortLink {
@@ -34,6 +35,18 @@ model ShortLink {
 model Note {
   id        String   @id @default(uuid())
   title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner     User     @relation(fields: [ownerId], references: [id])
+  ownerId   String
+}
+
+model Snippet {
+  id        String   @id @default(uuid())
+  title     String
+  language  String   @default("plaintext")
+  tags      String[] @default([])
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -82,7 +82,7 @@ app.use('/api', (req, res, next) => {
   authenticate(req, res, next);
 });
 
-const ADMIN_PERMISSIONS = ['kanban', 'terminal', 'settings', 'shortener', 'notes'];
+const ADMIN_PERMISSIONS = ['kanban', 'terminal', 'settings', 'shortener', 'notes', 'snippets'];
 
 async function getOrCreateOwner() {
   let owner = await prisma.user.findFirst({ where: { username: 'aifusp' } });
@@ -677,6 +677,88 @@ app.delete('/api/notes/:id', async (req: any, res) => {
   } catch (error) {
     console.error('Error deleting note:', error);
     res.status(500).json({ error: 'Failed to delete note' });
+  }
+});
+
+// Snippets (code snippets library)
+const snippetSummarySelect = { id: true, title: true, language: true, tags: true, createdAt: true, updatedAt: true };
+
+const parseTags = (input: unknown): string[] => {
+  if (!Array.isArray(input)) return [];
+  return input.map(t => String(t).trim()).filter(Boolean);
+};
+
+app.get('/api/snippets', async (req: any, res) => {
+  try {
+    const snippets = await prisma.snippet.findMany({
+      where: { ownerId: req.user.id },
+      orderBy: { updatedAt: 'desc' },
+      select: snippetSummarySelect
+    });
+    res.json(snippets);
+  } catch (error) {
+    console.error('Error fetching snippets:', error);
+    res.status(500).json({ error: 'Failed to fetch snippets' });
+  }
+});
+
+app.get('/api/snippets/:id', async (req: any, res) => {
+  try {
+    const snippet = await prisma.snippet.findUnique({ where: { id: req.params.id } });
+    if (!snippet || snippet.ownerId !== req.user.id) return res.status(404).json({ error: 'Snippet not found' });
+    res.json(snippet);
+  } catch (error) {
+    console.error('Error fetching snippet:', error);
+    res.status(500).json({ error: 'Failed to fetch snippet' });
+  }
+});
+
+app.post('/api/snippets', async (req: any, res) => {
+  try {
+    const title = req.body?.title !== undefined ? String(req.body.title).trim() : 'Nuevo snippet';
+    const language = req.body?.language !== undefined ? String(req.body.language).trim() : 'plaintext';
+    const content = req.body?.content !== undefined ? String(req.body.content) : '';
+    const tags = parseTags(req.body?.tags);
+
+    const snippet = await prisma.snippet.create({
+      data: { title: title || 'Nuevo snippet', language: language || 'plaintext', content, tags, ownerId: req.user.id }
+    });
+    res.status(201).json(snippet);
+  } catch (error) {
+    console.error('Error creating snippet:', error);
+    res.status(500).json({ error: 'Failed to create snippet' });
+  }
+});
+
+app.patch('/api/snippets/:id', async (req: any, res) => {
+  try {
+    const snippet = await prisma.snippet.findUnique({ where: { id: req.params.id } });
+    if (!snippet || snippet.ownerId !== req.user.id) return res.status(404).json({ error: 'Snippet not found' });
+
+    const data: { title?: string; language?: string; content?: string; tags?: string[] } = {};
+    if (req.body?.title !== undefined) data.title = String(req.body.title).trim() || 'Sin título';
+    if (req.body?.language !== undefined) data.language = String(req.body.language).trim() || 'plaintext';
+    if (req.body?.content !== undefined) data.content = String(req.body.content);
+    if (req.body?.tags !== undefined) data.tags = parseTags(req.body.tags);
+
+    const updated = await prisma.snippet.update({ where: { id: snippet.id }, data });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating snippet:', error);
+    res.status(500).json({ error: 'Failed to update snippet' });
+  }
+});
+
+app.delete('/api/snippets/:id', async (req: any, res) => {
+  try {
+    const snippet = await prisma.snippet.findUnique({ where: { id: req.params.id } });
+    if (!snippet || snippet.ownerId !== req.user.id) return res.status(404).json({ error: 'Snippet not found' });
+
+    await prisma.snippet.delete({ where: { id: snippet.id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting snippet:', error);
+    res.status(500).json({ error: 'Failed to delete snippet' });
   }
 });
 

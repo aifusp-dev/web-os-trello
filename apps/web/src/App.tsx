@@ -5,10 +5,11 @@ import { Taskbar } from './components/os/Taskbar';
 import { KanbanApp } from './components/apps/KanbanApp';
 import { ShortenerApp } from './components/apps/ShortenerApp';
 import { NotesApp } from './components/apps/NotesApp';
+import { SnippetsApp } from './components/apps/SnippetsApp';
 import { Login } from './components/os/Login';
 import { api } from './api';
 import { socket } from './socket';
-import { Layout, Link as LinkIcon, FileText } from 'lucide-react';
+import { Layout, Link as LinkIcon, FileText, Code2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const { windows, openWindow, isAuthenticated, setAuth, logout, hasPermission } = useOSStore();
@@ -47,6 +48,8 @@ const App: React.FC = () => {
         return <ShortenerApp />;
       case 'NotesApp':
         return <NotesApp />;
+      case 'SnippetsApp':
+        return <SnippetsApp />;
       default:
         return <div className="p-4 text-white">App not found: {component}</div>;
     }
@@ -97,6 +100,17 @@ const App: React.FC = () => {
               <FileText size={32} />
             </div>
             <span className="mt-2 text-[11px] font-medium text-white text-center shadow-black drop-shadow-md">Notas</span>
+          </button>
+        )}
+        {hasPermission('snippets') && (
+          <button
+            onDoubleClick={() => openWindow('snippets', 'Snippets', 'SnippetsApp')}
+            className="flex flex-col items-center group w-20"
+          >
+            <div className="w-14 h-14 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center text-os-pink group-hover:bg-os-pink/20 group-hover:border-os-pink group-hover:shadow-neon-pink transition-all">
+              <Code2 size={32} />
+            </div>
+            <span className="mt-2 text-[11px] font-medium text-white text-center shadow-black drop-shadow-md">Snippets</span>
           </button>
         )}
       </div>

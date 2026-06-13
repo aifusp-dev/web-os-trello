@@ -137,3 +137,25 @@ export const createNote = (data: { title?: string; content?: string }) =>
 export const updateNote = (id: string, data: { title?: string; content?: string }) =>
   api.patch<NoteData>(`/api/notes/${id}`, data).then(r => r.data);
 export const deleteNote = (id: string) => api.delete(`/api/notes/${id}`);
+
+export interface SnippetSummary {
+  id: string;
+  title: string;
+  language: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SnippetData extends SnippetSummary {
+  content: string;
+  ownerId: string;
+}
+
+export const getSnippets = () => api.get<SnippetSummary[]>('/api/snippets').then(r => r.data);
+export const getSnippet = (id: string) => api.get<SnippetData>(`/api/snippets/${id}`).then(r => r.data);
+export const createSnippet = (data: { title?: string; language?: string; content?: string; tags?: string[] }) =>
+  api.post<SnippetData>('/api/snippets', data).then(r => r.data);
+export const updateSnippet = (id: string, data: { title?: string; language?: string; content?: string; tags?: string[] }) =>
+  api.patch<SnippetData>(`/api/snippets/${id}`, data).then(r => r.data);
+export const deleteSnippet = (id: string) => api.delete(`/api/snippets/${id}`);
